@@ -3,6 +3,9 @@ package com.animir.bottomsheet2
 import android.annotation.SuppressLint
 import android.app.Dialog
 import android.content.res.Resources
+import android.graphics.BitmapFactory
+import android.graphics.drawable.BitmapDrawable
+import android.net.Uri
 import android.os.Bundle
 import android.util.DisplayMetrics
 import android.util.TypedValue
@@ -19,6 +22,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import kotlinx.android.synthetic.main.layout_bottom_sheet.view.*
+import kotlin.math.roundToInt
 
 class BottomSheet(dataList: ArrayList<BottomSheetItem>) : BottomSheetDialogFragment(){
 
@@ -27,6 +31,10 @@ class BottomSheet(dataList: ArrayList<BottomSheetItem>) : BottomSheetDialogFragm
     }
     var mScreenWidth = 0F
     var mScreenHeight = 0F
+
+    var mImageWidth = 0
+    var mImageHeight = 0
+
     var mDataList : ArrayList<BottomSheetItem> = dataList
     var mBottomSheetBehavior : BottomSheetBehavior<View>? = null
     var mBindingView : LayoutBottomSheetBinding? = null
@@ -34,8 +42,6 @@ class BottomSheet(dataList: ArrayList<BottomSheetItem>) : BottomSheetDialogFragm
     @SuppressLint("ClickableViewAccessibility")
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
 
-        mScreenWidth = (context!!.resources.displayMetrics.widthPixels).toFloat()
-        mScreenHeight = (context!!.resources.displayMetrics.heightPixels).toFloat()
 
         val bottomSheet = super.onCreateDialog(savedInstanceState) as BottomSheetDialog
         val view: View = View.inflate(context, R.layout.layout_bottom_sheet, null)
@@ -43,14 +49,24 @@ class BottomSheet(dataList: ArrayList<BottomSheetItem>) : BottomSheetDialogFragm
         mBindingView = DataBindingUtil.bind(view)
         bottomSheet.setContentView(view)
 
+        val displayMetrics = context!!.resources.displayMetrics
+        mScreenWidth = displayMetrics.widthPixels / displayMetrics.density
+        mScreenHeight = displayMetrics.heightPixels / displayMetrics.density
+
+        val image = BitmapFactory.decodeResource(resources, R.drawable.video_img)
+        val imageWidth = image.width
+        val imageHeight = image.height
+
+        mImageWidth = (pxToDP2((mScreenWidth.toInt() / 100) * 10) * imageWidth / imageHeight)
+        mImageHeight = (pxToDP2((mScreenHeight.toInt() / 100) * 15) * imageHeight / imageWidth)
 
         bottomSheet.setOnShowListener {
             mBottomSheetBehavior = BottomSheetBehavior.from((view.parent) as View)
-            mBottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED
-            mBottomSheetBehavior?.isFitToContents = true
-            mBottomSheetBehavior?.skipCollapsed = true
+            mBottomSheetBehavior?.state = BottomSheetBehavior.STATE_EXPANDED // 처음 열릴때 상태
+            mBottomSheetBehavior?.isFitToContents = true // 아래로 드래그할때 접히는 부분 중간 여부 (false : 활성화)
+            mBottomSheetBehavior?.skipCollapsed = false // 아래로 드래그해서 종료할때 접히는 구간 스킵여부
             mBottomSheetBehavior?.isHideable = false // 최소 높이로 작아질때 보여질지 여부
-            mBottomSheetBehavior?.peekHeight = 100 // 최소 높이
+            mBottomSheetBehavior?.peekHeight = pxToDP2(((mScreenHeight / 100) * 16).toInt()) // 최소 높이
 
             mBottomSheetBehavior?.addBottomSheetCallback(object : BottomSheetBehavior.BottomSheetCallback() {
                 override fun onStateChanged(bottomSheet: View, newState: Int) {
@@ -83,8 +99,16 @@ class BottomSheet(dataList: ArrayList<BottomSheetItem>) : BottomSheetDialogFragm
 
                 override fun onSlide(bottomSheet: View, slideOffset: Float) {
 
-                    view.videoLayout.layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dpToPx(((70F * 8) * slideOffset) + 70F))
-                    view.videoView.layoutParams = ConstraintLayout.LayoutParams(dpToPx(((150F * 8) * slideOffset) + 150F), ConstraintLayout.LayoutParams.MATCH_PARENT)
+                    view.videoLayout.layoutParams = LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        dpToPx(((mImageHeight * 8) * slideOffset) + mImageHeight)
+                    )
+
+                    view.videoView.layoutParams = ConstraintLayout.LayoutParams(
+                        dpToPx(((mImageWidth * 8) * slideOffset) + mImageWidth),
+                        ConstraintLayout.LayoutParams.MATCH_PARENT
+                    )
+
 
                     val tmp = 1.0F
                     view.title.alpha = (tmp - slideOffset)
@@ -92,6 +116,10 @@ class BottomSheet(dataList: ArrayList<BottomSheetItem>) : BottomSheetDialogFragm
                     view.playBtn.alpha = (tmp - slideOffset)
                     view.closeBtn.alpha = (tmp - slideOffset)
 
+                    view.title.layoutParams = LinearLayout.LayoutParams(
+                        dpToPx(((mImageWidth * 4) * (tmp - slideOffset)) + mImageWidth),
+                        LinearLayout.LayoutParams.MATCH_PARENT
+                    )
                 }
             })
         }
@@ -117,6 +145,13 @@ class BottomSheet(dataList: ArrayList<BottomSheetItem>) : BottomSheetDialogFragm
             px / (metrics.densityDpi.toFloat() / DisplayMetrics.DENSITY_DEFAULT)
         }).toInt()
     }
+
+    private fun pxToDP2(px: Int) : Int {
+        val resources = context!!.resources
+        val metrics = resources.displayMetrics
+        return (px / (metrics.xdpi / metrics.densityDpi)).roundToInt()
+    }
+
 
     private fun setupFullHeight(bottomSheet: View) {
         val layoutParams = bottomSheet.layoutParams
